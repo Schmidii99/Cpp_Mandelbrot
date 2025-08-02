@@ -6,11 +6,11 @@
 using std::string;
 
 struct Complex {
-    double im;
     double re;
+    double im;
 
-    Complex(const double re, const double im) : im(im), re(re){}
-    explicit Complex(const double x) : im(x), re(x){}
+    Complex(const double re, const double im) : re(re), im(im){}
+    explicit Complex(const double x) : re(x), im(x){}
     [[nodiscard]] string to_string() const {
         return  std::to_string(re) + " + " + std::to_string(im) + "i";
     }
@@ -25,24 +25,23 @@ struct Complex {
     }
 
     [[nodiscard]] Complex square() const {
-        if (this->re == 0 || this->im == 0)
-            return Complex{pow(this->re + this->im, 2), 0};
+        if (re == 0 || im == 0)
+            return Complex{pow(re + im, 2), 0};
 
-        return Complex{pow(this->re, 2) - pow(this->im,2), 2 * this->im * this->re };
+        return Complex{pow(re, 2) - pow(im,2), 2 * im * re };
     }
 
     [[nodiscard]] double magnitude() const {
-        return sqrt(pow(this->im, 2) + pow(this->re, 2));
+        return sqrt(pow(im, 2) + pow(re, 2));
     }
 };
 
-int steps_to_explode(Complex c, int max_steps = 50, int exploded_on = 1000) {
+int steps_to_explode(const Complex c, const int32_t max_steps = 50, const int32_t exploded_on = 1000) {
     int steps = 0;
     Complex z{0};
 
     while (steps < max_steps && z.magnitude() < exploded_on) {
         steps++;
-        // std::cout << "squared: " << z.square().to_string() << " Iteration: " << (z.square() + c).to_string() << std::endl;
         z = z.square() + c;
     }
 
@@ -65,14 +64,11 @@ int main() {
     int32_t MAX_ITERATIONS = 50;
     int8_t ITERATION_INCREASE = 5;
 
-    // run the program as long as the window is open
     while (window.isOpen())
     {
-        // check all the window's events that were triggered since the last iteration of the loop
         sf::Event event{};
         while (window.pollEvent(event))
         {
-            // "close requested" event: we close the window
             if (event.type == sf::Event::Closed)
                 window.close();
             else if (event.type == sf::Event::MouseButtonPressed) {
@@ -106,6 +102,7 @@ int main() {
             }
         }
 
+        // check if scope changed
         if (rendered)
             continue;
 
@@ -122,7 +119,7 @@ int main() {
         for(int i = 0; i < WIDTH*HEIGHT*4; i += 4) {
             const int16_t pixel_x = (i / 4) % WIDTH;
             const int16_t pixel_y = (i / 4) / WIDTH;
-            // map x from 0 - WIDTH -> -2 - 1
+            // map pixel cords to actual x/y coordinates
             const double x = static_cast<double>(pixel_x + 1) / static_cast<double>(WIDTH + 1) * (MAX_X - MIN_X) + MIN_X;
             const double y = static_cast<double>(pixel_y + 1) / static_cast<double>(HEIGHT + 1) * (MAX_Y - MIN_Y) + MIN_Y;
 
