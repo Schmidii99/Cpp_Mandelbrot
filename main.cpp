@@ -2,6 +2,7 @@
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include <limits>
+#include <thread>
 
 using std::string;
 
@@ -48,10 +49,30 @@ int steps_to_explode(const Complex c, const int32_t max_steps = 50, const int32_
     return steps;
 }
 
+void calculate_pixels(sf::Uint8* pixels, int32_t index, const int32_t MAX, const u_int16_t WIDTH, const u_int16_t HEIGHT, const int32_t MAX_ITERATIONS, const double_t MAX_X, const double_t MIN_X, const double_t MAX_Y, const double_t MIN_Y) {
+    for(; index < MAX; index += 4) {
+        const int16_t pixel_x = (index / 4) % WIDTH;
+        const int16_t pixel_y = (index / 4) / WIDTH;
+        // map pixel cords to actual x/y coordinates
+        const double x = static_cast<double>(pixel_x + 1) / static_cast<double>(WIDTH + 1) * (MAX_X - MIN_X) + MIN_X;
+        const double y = static_cast<double>(pixel_y + 1) / static_cast<double>(HEIGHT + 1) * (MAX_Y - MIN_Y) + MIN_Y;
+
+        Complex c{x, y};
+        const int steps = steps_to_explode(c, MAX_ITERATIONS);
+
+        pixels[index] = 255;
+        pixels[index+1] = 255;
+        pixels[index+2] = 255;
+        pixels[index+3] = 255 * (1 - steps / MAX_ITERATIONS);
+    }
+}
+
 
 constexpr u_int16_t WIDTH = 1400;
 constexpr u_int16_t HEIGHT = 800;
+constexpr u_int8_t THREAD_COUNT = 4;
 
+using namespace std;
 int main() {
     // create the window
     sf::RenderWindow window(sf::VideoMode(WIDTH, HEIGHT), "Mandelbrot");
@@ -116,6 +137,27 @@ int main() {
 
         sf::Sprite sprite(texture); // needed to draw the texture on screen
 
+        // calculate_pixels(pixels, 0, WIDTH*HEIGHT*4, WIDTH, HEIGHT, MAX_ITERATIONS, MAX_X, MIN_X, MAX_Y, MIN_Y);
+
+        auto* threads = new thread[THREAD_COUNT];
+        int chunk_size = WIDTH*HEIGHT*4 / THREAD_COUNT;
+
+        for (int i = 0; i < THREAD_COUNT; i++) {
+            threads[i] = thread(calculate_pixels,
+                                pixels,
+                                i * chunk_size,
+                                i * chunk_size + chunk_size,
+                                WIDTH, HEIGHT,
+                                MAX_ITERATIONS,
+                                MAX_X, MIN_X, MAX_Y, MIN_Y);
+        }
+        // wait for all threads to finish
+        for (int i = 0; i < THREAD_COUNT; i++) {
+            threads[i].join();
+        }
+
+        delete[] threads;
+        /*
         for(int i = 0; i < WIDTH*HEIGHT*4; i += 4) {
             const int16_t pixel_x = (i / 4) % WIDTH;
             const int16_t pixel_y = (i / 4) / WIDTH;
@@ -131,6 +173,7 @@ int main() {
             pixels[i+2] = 255;
             pixels[i+3] = 255 * (1 - steps / MAX_ITERATIONS);
         }
+        */
 
         texture.update(pixels);
         window.draw(sprite);
