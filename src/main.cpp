@@ -1,7 +1,6 @@
 #include <complex>
 #include <iostream>
 #include <SFML/Graphics.hpp>
-#include <limits>
 #include <thread>
 
 using std::string;
@@ -12,9 +11,6 @@ struct Complex {
 
     Complex(const double re, const double im) : re(re), im(im){}
     explicit Complex(const double x) : re(x), im(x){}
-    [[nodiscard]] string to_string() const {
-        return  std::to_string(re) + " + " + std::to_string(im) + "i";
-    }
 
     Complex operator+(const Complex& c) const {
         return Complex{re + c.re, im + c.im};
@@ -27,9 +23,9 @@ struct Complex {
 
     [[nodiscard]] Complex square() const {
         if (re == 0 || im == 0)
-            return Complex{pow(re + im, 2), 0};
+            return Complex{(re + im) * (re + im), 0.0};
 
-        return Complex{pow(re, 2) - pow(im,2), 2 * im * re };
+        return Complex{re * re - im * im, 2 * im * re };
     }
 
     [[nodiscard]] double magnitude() const {
@@ -37,9 +33,9 @@ struct Complex {
     }
 };
 
-int steps_to_explode(const Complex c, const int32_t max_steps = 50, const int32_t exploded_on = 1000) {
-    int steps = 0;
-    Complex z{0};
+u_int16_t steps_to_explode(const Complex c, const int16_t max_steps = 50, const int16_t exploded_on = 1000) {
+    u_int16_t steps = 0;
+    Complex z{0.0};
 
     while (steps < max_steps && z.magnitude() < exploded_on) {
         steps++;
@@ -49,21 +45,27 @@ int steps_to_explode(const Complex c, const int32_t max_steps = 50, const int32_
     return steps;
 }
 
+void set_rgba(sf::Uint8* pixels, int32_t index, u_int16_t steps, int32_t MAX_ITERATIONS) {
+    const std::size_t h1 = std::hash<string>{}(std::to_string(steps) + std::to_string(steps) + std::to_string(steps));
+    // std::cout << "Hash: " << h1 << std::endl;
+    pixels[index] = h1 % 239;
+    pixels[index+1] = h1 % 241;
+    pixels[index+2] = h1 % 251;
+    pixels[index+3] = steps == MAX_ITERATIONS ? 0 : 255;
+}
+
 void calculate_pixels(sf::Uint8* pixels, int32_t index, const int32_t MAX, const u_int16_t WIDTH, const u_int16_t HEIGHT, const int32_t MAX_ITERATIONS, const double_t MAX_X, const double_t MIN_X, const double_t MAX_Y, const double_t MIN_Y) {
     for(; index < MAX; index += 4) {
-        const int16_t pixel_x = (index / 4) % WIDTH;
-        const int16_t pixel_y = (index / 4) / WIDTH;
+        const u_int16_t pixel_x = (index / 4) % WIDTH;
+        const u_int16_t pixel_y = (index / 4) / WIDTH;
         // map pixel cords to actual x/y coordinates
         const double x = static_cast<double>(pixel_x + 1) / static_cast<double>(WIDTH + 1) * (MAX_X - MIN_X) + MIN_X;
         const double y = static_cast<double>(pixel_y + 1) / static_cast<double>(HEIGHT + 1) * (MAX_Y - MIN_Y) + MIN_Y;
 
         Complex c{x, y};
-        const int steps = steps_to_explode(c, MAX_ITERATIONS);
+        const u_int16_t steps = steps_to_explode(c, MAX_ITERATIONS);
 
-        pixels[index] = 255;
-        pixels[index+1] = 255;
-        pixels[index+2] = 255;
-        pixels[index+3] = 255 * (1 - steps / MAX_ITERATIONS);
+        set_rgba(pixels, index, steps, MAX_ITERATIONS);
     }
 }
 
@@ -137,8 +139,6 @@ int main() {
 
         sf::Sprite sprite(texture); // needed to draw the texture on screen
 
-        // calculate_pixels(pixels, 0, WIDTH*HEIGHT*4, WIDTH, HEIGHT, MAX_ITERATIONS, MAX_X, MIN_X, MAX_Y, MIN_Y);
-
         auto* threads = new thread[THREAD_COUNT];
         int chunk_size = WIDTH*HEIGHT*4 / THREAD_COUNT;
 
@@ -157,23 +157,6 @@ int main() {
         }
 
         delete[] threads;
-        /*
-        for(int i = 0; i < WIDTH*HEIGHT*4; i += 4) {
-            const int16_t pixel_x = (i / 4) % WIDTH;
-            const int16_t pixel_y = (i / 4) / WIDTH;
-            // map pixel cords to actual x/y coordinates
-            const double x = static_cast<double>(pixel_x + 1) / static_cast<double>(WIDTH + 1) * (MAX_X - MIN_X) + MIN_X;
-            const double y = static_cast<double>(pixel_y + 1) / static_cast<double>(HEIGHT + 1) * (MAX_Y - MIN_Y) + MIN_Y;
-
-            Complex c{x, y};
-            const int steps = steps_to_explode(c, MAX_ITERATIONS);
-
-            pixels[i] = 255;
-            pixels[i+1] = 255;
-            pixels[i+2] = 255;
-            pixels[i+3] = 255 * (1 - steps / MAX_ITERATIONS);
-        }
-        */
 
         texture.update(pixels);
         window.draw(sprite);
